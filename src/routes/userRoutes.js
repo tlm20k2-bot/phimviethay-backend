@@ -18,4 +18,9 @@ router.get('/favorites/check/:slug', verifyToken, userController.checkFavorite);
 // --- QUAN TRỌNG: Route cập nhật hồ sơ (Fix lỗi 404) ---
 router.put('/profile', verifyToken, userController.updateProfile);
 
+// Route lịch sử
+router.post('/history', verifyToken, userController.setHistory)
+router.get('/history', verifyToken, userController.getHistory);
+router.delete('/history', verifyToken, userController.clearHistory);
+
 module.exports = router;

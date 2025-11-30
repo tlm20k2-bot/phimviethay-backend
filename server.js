@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 require('./src/config/database'); 
+
+// Import Routes
 const authRoutes = require('./src/routes/authRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 
@@ -9,15 +11,13 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// --- CẤU HÌNH CORS ĐỘNG ---
-const corsOptions = {
-    origin: process.env.CLIENT_URL || '*', // Nếu chưa set thì cho phép tất cả (cẩn thận khi deploy)
-    credentials: true, // Cho phép gửi cookie nếu cần
-};
+// --- CẤU HÌNH MIDDLEWARE (QUAN TRỌNG) ---
+// Phải đặt những dòng này TRƯỚC khi khai báo routes
+app.use(cors());
+app.use(express.json()); // <--- Dòng này giúp đọc JSON từ body
+app.use(express.urlencoded({ extended: true })); // Hỗ trợ thêm form-data nếu cần
 
-app.use(cors(corsOptions));
-app.use(express.json());
-
+// Sử dụng Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 
@@ -26,5 +26,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Server đang chạy tại port ${PORT}`);
+    console.log(`🚀 Server đang chạy tại http://localhost:${PORT}`);
 });

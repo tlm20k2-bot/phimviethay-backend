@@ -1,6 +1,10 @@
 const Favorite = require('../models/Favorite');
-const User = require('../models/User'); // Import User Model
-const bcrypt = require('bcryptjs');     // Import bcrypt để mã hóa pass
+const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+// --- THÊM DÒNG NÀY ---
+const History = require('../models/History'); 
+// ---------------------
 
 // Lấy danh sách yêu thích
 exports.getFavorites = async (req, res) => {
@@ -15,12 +19,23 @@ exports.getFavorites = async (req, res) => {
 // Thêm yêu thích
 exports.addFavorite = async (req, res) => {
     try {
-        const { slug, name, thumb } = req.body;
+        const { slug, name, thumb, quality, year, episode_current, vote_average } = req.body;
+        
         if (!slug || !name) return res.status(400).json({ message: 'Thiếu thông tin phim' });
 
-        await Favorite.add(req.user.id, { slug, name, thumb });
+        await Favorite.add(req.user.id, { 
+            slug, 
+            name, 
+            thumb,
+            quality, 
+            year, 
+            episode_current,
+            vote_average 
+        });
+        
         res.json({ message: 'Đã thêm vào danh sách yêu thích', added: true });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Lỗi server' });
     }
 };
@@ -31,49 +46,68 @@ exports.removeFavorite = async (req, res) => {
         const { slug } = req.params;
         await Favorite.remove(req.user.id, slug);
         res.json({ message: 'Đã xóa khỏi danh sách', added: false });
-    } catch (error) {
-        res.status(500).json({ message: 'Lỗi server' });
-    }
+    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
 };
 
-// Kiểm tra trạng thái
+// Kiểm tra trạng thái thích
 exports.checkFavorite = async (req, res) => {
     try {
         const { slug } = req.params;
         const isFavorite = await Favorite.check(req.user.id, slug);
         res.json({ isFavorite });
-    } catch (error) {
-        res.status(500).json({ message: 'Lỗi server' });
-    }
+    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
 };
 
-// --- HÀM MỚI: CẬP NHẬT PROFILE ---
+// Cập nhật hồ sơ
 exports.updateProfile = async (req, res) => {
     try {
         const { fullname, password, avatar } = req.body;
         const updateData = {};
-
         if (fullname) updateData.fullname = fullname;
         if (avatar) updateData.avatar = avatar;
-        
-        // Nếu có gửi password mới lên -> Mã hóa nó
         if (password) {
             const salt = await bcrypt.genSalt(10);
             updateData.password = await bcrypt.hash(password, salt);
         }
-
-        // Gọi Model để update
         await User.update(req.user.id, updateData);
-        
-        // Quan trọng: Lấy lại thông tin user mới nhất từ DB để trả về cho Frontend cập nhật UI
         const updatedUser = await User.findById(req.user.id);
+        res.json({ message: 'Cập nhật thành công!', user: updatedUser });
+    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
+};
 
-        res.json({ 
-            message: 'Cập nhật thành công!',
-            user: updatedUser // Trả về user mới (đã update)
-        });
+// --- HISTORY SECTION ---
+
+// Ghi lịch sử
+exports.setHistory = async (req, res) => {
+    try {
+        const { movieSlug, episodeSlug, movieName, movieThumb, episodeName } = req.body;
+        
+        if (!movieSlug || !episodeSlug) {
+            return res.status(400).json({ message: 'Thiếu thông tin' });
+        }
+
+        // Gọi Model History (Giờ đã được import nên sẽ không lỗi nữa)
+        await History.set(req.user.id, { movieSlug, episodeSlug, movieName, movieThumb, episodeName });
+        
+        res.json({ message: 'Đã lưu lịch sử' });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi server khi cập nhật' });
+        console.error('Lỗi set history:', error);
+        res.status(500).json({ message: 'Lỗi server' });
     }
+};
+
+// Lấy lịch sử
+exports.getHistory = async (req, res) => {
+    try {
+        const list = await History.getList(req.user.id);
+        res.json(list);
+    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
+};
+
+// Xóa lịch sử
+exports.clearHistory = async (req, res) => {
+    try {
+        await History.clear(req.user.id);
+        res.json({ message: 'Đã xóa toàn bộ lịch sử' });
+    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
 };
