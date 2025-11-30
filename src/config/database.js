@@ -17,7 +17,7 @@ const pool = mysql.createPool({
 // Chuyển sang Promise wrapper để dùng async/await cho sướng
 const db = pool.promise();
 
-// Test kết nối
+// Test kết nốie
 pool.getConnection((err, connection) => {
     if (err) {
         console.error('❌ Lỗi kết nối MySQL:', err.message);
