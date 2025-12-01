@@ -78,6 +78,16 @@ class Comment {
 
         return result.affectedRows > 0;
     }
+    static async getAll() {
+        const sql = `
+            SELECT c.*, u.username, u.avatar 
+            FROM comments c 
+            JOIN users u ON c.user_id = u.id 
+            ORDER BY c.created_at DESC
+        `;
+        const [rows] = await db.execute(sql);
+        return rows;
+    }
 }
 
 module.exports = Comment;

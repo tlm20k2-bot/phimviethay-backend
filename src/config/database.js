@@ -9,20 +9,26 @@ const pool = mysql.createPool({
     password: process.env.DB_PASS,
     database: process.env.DB_NAME,
     port: process.env.DB_PORT || 4000,
+    
+    // --- CẤU HÌNH POOL (Quan trọng) ---
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    // --- THÊM ĐOẠN NÀY ĐỂ CHẠY ĐƯỢC TRÊN TIDB ---
+    
+    // --- FIX LỖI ECONNRESET (Giữ kết nối luôn sống) ---
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    
+    // --- CẤU HÌNH SSL CHO TIDB ---
     ssl: {
         minVersion: 'TLSv1.2',
-        rejectUnauthorized: true
+        rejectUnauthorized: false // false để chạy dev, true khi deploy (như bài trước đã bàn)
     }
-    // ---------------------------------------------
 });
 
 const db = pool.promise();
 
-// Test kết nối
+// Test kết nối (Thêm đoạn catch để không crash app nếu lỗi ban đầu)
 pool.getConnection((err, connection) => {
     if (err) {
         console.error('❌ Lỗi kết nối MySQL:', err.message);

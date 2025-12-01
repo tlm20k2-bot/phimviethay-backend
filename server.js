@@ -7,6 +7,8 @@ require('./src/config/database');
 const authRoutes = require('./src/routes/authRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const commentRoutes = require('./src/routes/commentRoutes');
+const adminRoutes = require('./src/routes/adminRoutes'); 
+const movieRoutes = require('./src/routes/movieRoutes');
 
 dotenv.config();
 const app = express();
@@ -22,6 +24,8 @@ app.use(express.urlencoded({ extended: true })); // Hỗ trợ thêm form-data n
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/comments', commentRoutes);
+app.use('/api/admin', adminRoutes); 
+app.use('/api/movies', movieRoutes);
 
 app.get('/', (req, res) => {
     res.send('Server PhimVietHay đang chạy...');

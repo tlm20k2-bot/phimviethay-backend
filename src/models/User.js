@@ -64,6 +64,16 @@ class User {
         const [result] = await db.execute(sql, values);
         return result;
     }
+    static async getAll() {
+        const [rows] = await db.execute('SELECT id, username, email, fullname, role, avatar, created_at FROM users ORDER BY created_at DESC');
+        return rows;
+    }
+
+    // Xóa user
+    static async delete(id) {
+        const [result] = await db.execute('DELETE FROM users WHERE id = ?', [id]);
+        return result.affectedRows > 0;
+    }
 }
 
 module.exports = User;
