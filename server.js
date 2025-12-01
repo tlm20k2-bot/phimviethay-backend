@@ -6,6 +6,7 @@ require('./src/config/database');
 // Import Routes
 const authRoutes = require('./src/routes/authRoutes');
 const userRoutes = require('./src/routes/userRoutes');
+const commentRoutes = require('./src/routes/commentRoutes');
 
 dotenv.config();
 const app = express();
@@ -20,6 +21,7 @@ app.use(express.urlencoded({ extended: true })); // Hỗ trợ thêm form-data n
 // Sử dụng Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/comments', commentRoutes);
 
 app.get('/', (req, res) => {
     res.send('Server PhimVietHay đang chạy...');
