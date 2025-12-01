@@ -26,6 +26,10 @@ app.use('/api/comments', commentRoutes);
 app.get('/', (req, res) => {
     res.send('Server PhimVietHay đang chạy...');
 });
+// Tool bên ngoài sẽ gọi vào đây định kỳ
+app.get('/ping', (req, res) => {
+    res.status(200).send('Pong! Server is alive.');
+});
 
 app.listen(PORT, () => {
     console.log(`🚀 Server đang chạy tại http://localhost:${PORT}`);
