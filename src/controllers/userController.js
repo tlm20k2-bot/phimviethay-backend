@@ -111,3 +111,12 @@ exports.clearHistory = async (req, res) => {
         res.json({ message: 'Đã xóa toàn bộ lịch sử' });
     } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
 };
+exports.removeHistoryItem = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        await History.remove(req.user.id, slug);
+        res.json({ message: 'Đã xóa phim khỏi lịch sử' });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+};

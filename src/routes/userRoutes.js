@@ -22,5 +22,5 @@ router.put('/profile', verifyToken, userController.updateProfile);
 router.post('/history', verifyToken, userController.setHistory)
 router.get('/history', verifyToken, userController.getHistory);
 router.delete('/history', verifyToken, userController.clearHistory);
-
+router.delete('/history/:slug', verifyToken, userController.removeHistoryItem); // Xóa 1 phim
 module.exports = router;

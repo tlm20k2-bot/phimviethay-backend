@@ -34,7 +34,13 @@ class History {
         );
         return rows;
     }
-    
+    static async remove(userId, movieSlug) {
+        const [result] = await db.execute(
+            'DELETE FROM history WHERE user_id = ? AND movie_slug = ?', 
+            [userId, movieSlug]
+        );
+        return result.affectedRows > 0;
+    }
     // 3. Hàm clear (Xóa lịch sử)
     static async clear(userId) {
         const [result] = await db.execute('DELETE FROM history WHERE user_id = ?', [userId]);
