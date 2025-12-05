@@ -1,34 +1,34 @@
 const mysql = require('mysql2');
-const dotenv = require('dotenv');
-
-dotenv.config();
+require('dotenv').config();
 
 const pool = mysql.createPool({
+    // Thông tin kết nối cơ bản
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
     database: process.env.DB_NAME,
     port: process.env.DB_PORT || 4000,
-    
-    // --- CẤU HÌNH POOL (Quan trọng) ---
+
+    // Cấu hình Pool để tối ưu hiệu năng
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    
-    // --- FIX LỖI ECONNRESET (Giữ kết nối luôn sống) ---
+
+    // Cấu hình Keep-Alive để tránh lỗi ECONNRESET
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
-    
-    // --- CẤU HÌNH SSL CHO TIDB ---
+
+    // Cấu hình SSL (Bắt buộc đối với TiDB/Cloud DB)
     ssl: {
         minVersion: 'TLSv1.2',
-        rejectUnauthorized: false // false để chạy dev, true khi deploy (như bài trước đã bàn)
+        rejectUnauthorized: false 
     }
 });
 
+// Chuyển đổi sang Promise để sử dụng async/await
 const db = pool.promise();
 
-// Test kết nối (Thêm đoạn catch để không crash app nếu lỗi ban đầu)
+// Kiểm tra kết nối khi khởi động server
 pool.getConnection((err, connection) => {
     if (err) {
         console.error('❌ Lỗi kết nối MySQL:', err.message);

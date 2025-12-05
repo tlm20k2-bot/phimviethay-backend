@@ -48,4 +48,4 @@ class History {
     }
 }
 
-module.exports = History; // <-- QUAN TRỌNG: Phải export class này ra
+module.exports = History; 

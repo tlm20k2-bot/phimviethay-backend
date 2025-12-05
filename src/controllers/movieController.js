@@ -39,7 +39,7 @@ exports.increaseView = async (req, res) => {
     }
 };
 
-// Lấy Top Trending (Giữ nguyên)
+// Lấy Top Trending
 exports.getTrending = async (req, res) => {
     try {
         const [rows] = await db.execute('SELECT * FROM movie_views ORDER BY view_count DESC LIMIT 10');

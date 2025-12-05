@@ -2,9 +2,7 @@ const Favorite = require('../models/Favorite');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-// --- THÊM DÒNG NÀY ---
 const History = require('../models/History'); 
-// ---------------------
 
 // Lấy danh sách yêu thích
 exports.getFavorites = async (req, res) => {

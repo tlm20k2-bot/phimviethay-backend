@@ -2,7 +2,7 @@ const db = require('../config/database');
 const User = require('../models/User');
 const Comment = require('../models/Comment');
 
-// Thống kê (Giữ nguyên code cũ)
+// Thống kê 
 exports.getStats = async (req, res) => {
     try {
         const [users] = await db.execute('SELECT COUNT(*) as count FROM users');

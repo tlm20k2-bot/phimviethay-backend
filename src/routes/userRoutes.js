@@ -14,8 +14,7 @@ router.delete('/favorites/:slug', verifyToken, userController.removeFavorite);
 
 // Route kiểm tra trạng thái phim
 router.get('/favorites/check/:slug', verifyToken, userController.checkFavorite);
-
-// --- QUAN TRỌNG: Route cập nhật hồ sơ (Fix lỗi 404) ---
+// Route cập nhật thông tin người dùng
 router.put('/profile', verifyToken, userController.updateProfile);
 
 // Route lịch sử
