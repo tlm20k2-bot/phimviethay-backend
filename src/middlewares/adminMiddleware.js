@@ -1,10 +1,10 @@
-const adminMiddleware = (req, res, next) => {
-    // req.user đã có từ verifyToken chạy trước đó
+const verifyAdmin = (req, res, next) => {
+    // Lưu ý: Middleware này phải chạy SAU verifyToken thì mới có req.user
     if (req.user && req.user.role === 'admin') {
-        next(); // Là admin, cho qua
+        next();
     } else {
-        res.status(403).json({ message: 'Truy cập bị từ chối! Bạn không phải Admin.' });
+        return res.status(403).json({ message: 'Truy cập bị từ chối! Yêu cầu quyền Admin.' });
     }
 };
 
-module.exports = adminMiddleware;
+module.exports = verifyAdmin;

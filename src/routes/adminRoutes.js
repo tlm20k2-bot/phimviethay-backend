@@ -1,12 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+
+// --- IMPORT TỪNG FILE RIÊNG BIỆT ---
+// Lưu ý: Không dùng dấu { } vì file middleware xuất trực tiếp hàm
 const verifyToken = require('../middlewares/authMiddleware');
-const adminMiddleware = require('../middlewares/adminMiddleware');
+const verifyAdmin = require('../middlewares/adminMiddleware');
 
-// Middleware chung cho toàn bộ route admin
-router.use(verifyToken, adminMiddleware);
+// --- ÁP DỤNG MIDDLEWARE ---
+// Thứ tự cực quan trọng: Phải xác thực Token trước để lấy info user, sau đó mới check quyền Admin
+router.use(verifyToken, verifyAdmin);
 
+// --- ĐỊNH NGHĨA ROUTES ---
 // Dashboard
 router.get('/stats', adminController.getStats);
 

@@ -12,6 +12,7 @@ const userRoutes = require('./src/routes/userRoutes');
 const commentRoutes = require('./src/routes/commentRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
 const movieRoutes = require('./src/routes/movieRoutes');
+const analyticsRoutes = require('./src/routes/analyticsRoutes');
 
 dotenv.config();
 const app = express();
@@ -58,6 +59,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/movies', movieRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.get('/', (req, res) => {
     res.send('Server PhimVietHay đang chạy...');

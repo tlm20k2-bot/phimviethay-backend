@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
 
 const verifyToken = (req, res, next) => {
-    // Lấy token từ header: "Authorization: Bearer abcxyz..."
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -10,13 +9,13 @@ const verifyToken = (req, res, next) => {
     }
 
     try {
-        // Giải mã token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded; // Lưu thông tin user vào request để dùng ở bước sau
-        next(); // Cho phép đi tiếp
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
+        req.user = decoded; // Lưu info user
+        next();
     } catch (error) {
-        return res.status(403).json({ message: 'Token không hợp lệ hoặc đã hết hạn.' });
+        return res.status(403).json({ message: 'Token không hợp lệ.' });
     }
 };
 
+// Xuất ra trực tiếp hàm này (hoặc Object cũng được, nhưng function cho gọn nếu chỉ có 1 hàm)
 module.exports = verifyToken;
