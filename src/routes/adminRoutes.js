@@ -2,22 +2,26 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 
-// --- IMPORT TỪNG FILE RIÊNG BIỆT ---
-// Lưu ý: Không dùng dấu { } vì file middleware xuất trực tiếp hàm
+// 1. Import verifyToken (Vì authMiddleware xuất trực tiếp 1 hàm -> KHÔNG dùng ngoặc nhọn)
 const verifyToken = require('../middlewares/authMiddleware');
-const verifyAdmin = require('../middlewares/adminMiddleware');
+
+// 2. Import verifyAdmin (Vì adminMiddleware xuất Object -> PHẢI dùng ngoặc nhọn)
+const { verifyAdmin, verifySuperAdmin } = require('../middlewares/adminMiddleware');
 
 // --- ÁP DỤNG MIDDLEWARE ---
-// Thứ tự cực quan trọng: Phải xác thực Token trước để lấy info user, sau đó mới check quyền Admin
+// Nếu verifyToken hoặc verifyAdmin bị undefined, dòng này sẽ gây crash server
 router.use(verifyToken, verifyAdmin);
 
 // --- ĐỊNH NGHĨA ROUTES ---
-// Dashboard
 router.get('/stats', adminController.getStats);
 
 // Users
 router.get('/users', adminController.getAllUsers);
 router.delete('/users/:id', adminController.deleteUser);
+
+// Nâng quyền (Chỉ Super Admin)
+router.put('/users/:id/role', verifySuperAdmin, adminController.updateUserRole);
+router.put('/users/:id/ban', adminController.banUser);
 
 // Comments
 router.get('/comments', adminController.getAllComments);

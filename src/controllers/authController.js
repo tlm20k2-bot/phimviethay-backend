@@ -1,3 +1,4 @@
+const db = require('../config/database'); // <--- [QUAN TRỌNG] Thêm dòng này để dùng db
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -23,24 +24,40 @@ exports.register = async (req, res) => {
     }
 };
 
-// ĐĂNG NHẬP (SỬA LẠI)
+// ĐĂNG NHẬP
 exports.login = async (req, res) => {
     try {
-        // Frontend gửi field tên là 'email', nhưng giá trị có thể là username
+        // Frontend gửi field tên là 'email', nhưng giá trị có thể là username hoặc email
         const { email, password } = req.body; 
 
-        // Tìm user bằng (Email HOẶC Username)
+        // 1. Tìm user bằng (Email HOẶC Username) thông qua Model
         const user = await User.findByCredentials(email);
         
         if (!user) {
             return res.status(400).json({ message: 'Tài khoản không tồn tại!' });
         }
 
+        // --- [MỚI] 2. KIỂM TRA TRẠNG THÁI CẤM (BAN) ---
+        // Query trực tiếp vào DB để lấy banned_until chính xác nhất theo ID
+        const [banCheck] = await db.query('SELECT banned_until FROM users WHERE id = ?', [user.id]);
+        
+        if (banCheck.length > 0) {
+            const bannedUntil = banCheck[0].banned_until;
+            if (bannedUntil && new Date(bannedUntil) > new Date()) {
+                return res.status(403).json({ 
+                    message: `Tài khoản của bạn bị khóa đến: ${new Date(bannedUntil).toLocaleString('vi-VN')}` 
+                });
+            }
+        }
+        // ------------------------------------------------
+
+        // 3. Kiểm tra mật khẩu
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Mật khẩu không đúng!' });
         }
 
+        // 4. Tạo Token
         const token = jwt.sign(
             { id: user.id, role: user.role }, 
             process.env.JWT_SECRET, 

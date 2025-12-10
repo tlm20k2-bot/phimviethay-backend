@@ -2,29 +2,31 @@ const express = require('express');
 const router = express.Router();
 const analyticsController = require('../controllers/analyticsController');
 
-// Import Middleware (Nhớ là import riêng lẻ như ta đã chốt)
+// 1. Import verifyToken (Auth Middleware xuất trực tiếp hàm -> Import thường)
 const verifyToken = require('../middlewares/authMiddleware');
-const verifyAdmin = require('../middlewares/adminMiddleware');
 
-// --- CÁC ROUTES ---
+// 2. Import verifyAdmin (Admin Middleware xuất Object -> PHẢI dùng ngoặc nhọn { })
+// [ĐÂY LÀ NGUYÊN NHÂN GÂY LỖI TRƯỚC ĐÓ]
+const { verifyAdmin } = require('../middlewares/adminMiddleware');
 
-// 1. Nhận log từ User (Public)
+// --- ROUTES ---
+
+// 1. Nhận log từ User (Nếu bạn chưa xóa hàm submitLog trong controller thì giữ nguyên, nếu xóa rồi thì comment lại)
 router.post('/log', analyticsController.submitLog);
 
 // 2. Admin God Mode (Cần quyền Admin)
 router.post('/admin/force', verifyToken, verifyAdmin, analyticsController.adminForceIntro);
 
-// 3. Lấy dữ liệu Intro để hiển thị nút Skip (Public)
-router.get('/data', analyticsController.getEpisodeIntelligence);
+// 3. Lấy thống kê cho Dashboard
+router.get('/admin/movies-stats', verifyToken, verifyAdmin, analyticsController.getMovieStats);
 
-// --- CÁC ROUTES MỚI CHO DASHBOARD (ĐANG THIẾU CÁI NÀY) ---
-
-// 4. Lấy danh sách Intro cho Admin Dashboard
+// 4. Lấy danh sách chi tiết (Table)
 router.get('/admin/list', verifyToken, verifyAdmin, analyticsController.getAllIntros);
 
 // 5. Xóa dữ liệu Intro
 router.delete('/admin/:id', verifyToken, verifyAdmin, analyticsController.deleteIntro);
 
-router.get('/admin/movies-stats', verifyToken, verifyAdmin, analyticsController.getMovieStats);
+// 6. Lấy dữ liệu cho Player (Public - Không cần đăng nhập)
+router.get('/data', analyticsController.getEpisodeIntelligence);
 
 module.exports = router;
