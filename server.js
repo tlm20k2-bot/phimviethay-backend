@@ -18,29 +18,43 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// [QUAN TRỌNG KHI DEPLOY RENDER]
+// Giúp Express nhận diện đúng IP thật của người dùng thay vì IP của Proxy Render
+// Nếu thiếu dòng này, Rate Limit sẽ chặn nhầm tất cả mọi người
+app.set('trust proxy', 1);
+
 app.use(helmet());
 
+// Giới hạn request (DDOS protection nhẹ)
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 150, 
+    windowMs: 15 * 60 * 1000, // 15 phút
+    max: 150, // tối đa 150 request mỗi IP
+    standardHeaders: true,
+    legacyHeaders: false,
     message: { message: 'Bạn đã gửi quá nhiều yêu cầu, vui lòng thử lại sau 15 phút!' }
 });
 app.use('/api', limiter);
 
+// Cấu hình CORS chặt chẽ nhưng linh hoạt
 const allowedOrigins = [
-    'http://localhost:5173', 
-    process.env.CLIENT_URL
-];
+    'http://localhost:5173',            // Môi trường Dev
+    'https://phimviethay.pages.dev',    // Domain Frontend trên Cloudflare (Thay bằng domain thật của bạn)
+    process.env.CLIENT_URL              // Biến môi trường trên Render
+].filter(Boolean); // Lọc bỏ giá trị undefined/null/rỗng
 
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        // Cho phép request từ cùng domain hoặc không có origin (ví dụ: Postman, Server-to-Server)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
+            console.log("Blocked CORS Origin:", origin); // Log để dễ debug trên Render
             callback(new Error('Không được phép truy cập bởi CORS'));
         }
     },
-    credentials: true
+    credentials: true // Cho phép gửi cookie/token
 }));
 
 // Tăng giới hạn json lên để tránh lỗi PayloadTooLarge
@@ -65,6 +79,7 @@ app.get('/', (req, res) => {
     res.send('Server PhimVietHay đang chạy...');
 });
 
+// Middleware xử lý lỗi tập trung
 app.use((err, req, res, next) => {
     console.error('🔥 Lỗi hệ thống:', err.stack);
     res.status(500).json({ 

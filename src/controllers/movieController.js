@@ -1,48 +1,104 @@
-const db = require('../config/database');
+const axios = require('axios');
+const Movie = require('../models/Movie');
 
-// Tăng lượt xem (Lưu Full Info để hiển thị Card đẹp)
-exports.increaseView = async (req, res) => {
+// 1. [CORE] Lấy chi tiết phim (Cơ chế Lazy Sync)
+exports.getMovieDetail = async (req, res) => {
     try {
-        const { slug, name, thumb, quality, year, episode_current, vote_average } = req.body;
-        
+        const { slug } = req.params;
         if (!slug) return res.status(400).json({ message: 'Thiếu slug' });
 
-        // SQL: Nếu chưa có thì tạo mới, nếu có rồi thì tăng view + cập nhật thông tin mới nhất
-        const sql = `
-            INSERT INTO movie_views 
-            (movie_slug, movie_name, movie_thumb, movie_quality, movie_year, episode_current, vote_average, view_count) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1) 
-            ON DUPLICATE KEY UPDATE 
-                view_count = view_count + 1,
-                movie_name = VALUES(movie_name),
-                movie_thumb = VALUES(movie_thumb),
-                movie_quality = VALUES(movie_quality),
-                movie_year = VALUES(movie_year),
-                episode_current = VALUES(episode_current),
-                vote_average = VALUES(vote_average)
-        `;
-        
-        await db.execute(sql, [
-            slug, 
-            name, 
-            thumb, 
-            quality || 'HD', 
-            year || '2024', 
-            episode_current || 'Full', 
-            vote_average || 0
-        ]);
-        
-        res.json({ message: 'View counted' });
+        // BƯỚC 1: Kiểm tra trong Database
+        let movie = await Movie.findBySlug(slug);
+
+        if (movie) {
+            // Tăng view ngầm
+            Movie.incrementView(slug);
+
+            // HYBRID: Lấy Info từ DB + Episodes từ API
+            try {
+                const response = await axios.get(`https://ophim1.com/phim/${slug}`);
+                const apiData = response.data;
+                
+                if (apiData.status) {
+                    apiData.movie = { 
+                        ...apiData.movie, // Backup
+                        ...movie,         // Ưu tiên data từ DB mình
+                    };
+                    return res.json(apiData);
+                }
+            } catch (err) {
+                // Chỉ log lỗi thực sự quan trọng (khi API Ophim chết)
+                console.error(`[Offline Mode] Không gọi được API cho phim: ${slug}`);
+                return res.json({ 
+                    status: true, 
+                    movie: movie, 
+                    episodes: [] 
+                });
+            }
+        }
+
+        // BƯỚC 2: Nếu chưa có trong DB -> Gọi API Ophim
+        const response = await axios.get(`https://ophim1.com/phim/${slug}`);
+        const apiData = response.data;
+
+        if (!apiData.status || !apiData.movie) {
+            return res.status(404).json({ message: 'Phim không tìm thấy' });
+        }
+
+        const m = apiData.movie;
+
+        // BƯỚC 3: Lưu vào Database (Sync)
+        const movieToSave = {
+            slug: m.slug,
+            origin_name: m.origin_name,
+            name: m.name,
+            thumb_url: m.thumb_url,
+            poster_url: m.poster_url,
+            content: m.content,
+            type: m.type,
+            status: m.status,
+            year: m.year,
+            time: m.time,
+            episode_current: m.episode_current,
+            episode_total: m.episode_total,
+            quality: m.quality,
+            lang: m.lang
+        };
+
+        // Lưu bất đồng bộ, chỉ log nếu có lỗi nghiêm trọng khi lưu
+        Movie.create(movieToSave).catch(err => console.error("[DB Error] Lỗi lưu phim:", err));
+
+        // Trả về dữ liệu
+        res.json(apiData);
+
     } catch (error) {
-        console.error("Lỗi tăng view:", error);
+        console.error("[System Error] Get Movie Detail:", error);
         res.status(500).json({ message: 'Lỗi server' });
     }
 };
 
-// Lấy Top Trending
+// 2. Lấy Top Trending
 exports.getTrending = async (req, res) => {
     try {
-        const [rows] = await db.execute('SELECT * FROM movie_views ORDER BY view_count DESC LIMIT 10');
-        res.json(rows);
-    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
+        const movies = await Movie.getTrending(10);
+        
+        const formattedMovies = movies.map(m => ({
+            _id: m.id,
+            slug: m.slug,
+            name: m.name,
+            origin_name: m.origin_name,
+            thumb_url: m.thumb_url,
+            poster_url: m.poster_url,
+            year: m.year,
+            quality: m.quality,
+            lang: m.lang,
+            vote_average: 0,
+            view_count: m.view_count // Có thể dùng để debug hoặc hiển thị
+        }));
+
+        res.json(formattedMovies);
+    } catch (error) {
+        console.error("[System Error] Get Trending:", error);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
 };
