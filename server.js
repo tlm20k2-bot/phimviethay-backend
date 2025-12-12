@@ -4,6 +4,8 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
+const http = require('http'); // [MỚI] Module HTTP gốc của Node.js
+const { Server } = require("socket.io"); // [MỚI] Thư viện Socket.io
 
 require('./src/config/database'); 
 
@@ -18,52 +20,90 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// [MỚI] Tạo HTTP Server bọc lấy Express App
+const server = http.createServer(app);
+
 // [QUAN TRỌNG KHI DEPLOY RENDER]
-// Giúp Express nhận diện đúng IP thật của người dùng thay vì IP của Proxy Render
-// Nếu thiếu dòng này, Rate Limit sẽ chặn nhầm tất cả mọi người
 app.set('trust proxy', 1);
 
 app.use(helmet());
 
-// Giới hạn request (DDOS protection nhẹ)
+// Giới hạn request
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 phút
-    max: 150, // tối đa 150 request mỗi IP
+    windowMs: 15 * 60 * 1000, 
+    max: 150, 
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: 'Bạn đã gửi quá nhiều yêu cầu, vui lòng thử lại sau 15 phút!' }
 });
 app.use('/api', limiter);
 
-// Cấu hình CORS chặt chẽ nhưng linh hoạt
+// Cấu hình CORS (Dùng chung cho cả Express và Socket)
 const allowedOrigins = [
     'http://localhost:5173',            // Môi trường Dev
-    'https://phimviethay.pages.dev',    // Domain Frontend trên Cloudflare (Thay bằng domain thật của bạn)
-    process.env.CLIENT_URL              // Biến môi trường trên Render
-].filter(Boolean); // Lọc bỏ giá trị undefined/null/rỗng
+    'https://phimviethay.pages.dev',    // Domain Frontend
+    process.env.CLIENT_URL              // Biến môi trường
+].filter(Boolean);
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Cho phép request từ cùng domain hoặc không có origin (ví dụ: Postman, Server-to-Server)
         if (!origin) return callback(null, true);
-        
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            console.log("Blocked CORS Origin:", origin); // Log để dễ debug trên Render
+            console.log("Blocked CORS Origin:", origin);
             callback(new Error('Không được phép truy cập bởi CORS'));
         }
     },
-    credentials: true // Cho phép gửi cookie/token
+    credentials: true
 }));
 
-// Tăng giới hạn json lên để tránh lỗi PayloadTooLarge
+// [MỚI] Cấu hình Socket.io
+const io = new Server(server, {
+    cors: {
+        origin: allowedOrigins, // Cho phép các domain trên kết nối socket
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
+
+// [MỚI] Logic Real-time cho Watch Party
+io.on("connection", (socket) => {
+    // console.log(`⚡ Client connected: ${socket.id}`);
+
+    // 1. Tham gia phòng xem chung
+    socket.on("join_room", (roomId) => {
+        socket.join(roomId);
+        // console.log(`User ${socket.id} joined room: ${roomId}`);
+        
+        // Thông báo cho những người khác trong phòng
+        socket.to(roomId).emit("user_joined", { id: socket.id });
+    });
+
+    // 2. Đồng bộ Video (Play/Pause/Seek/Change Server)
+    socket.on("video_action", (data) => {
+        // data: { roomId, action: 'play'|'pause'|'seek', time: 123, ... }
+        // Gửi cho tất cả mọi người trong phòng TRỪ người gửi (broadcast)
+        socket.to(data.roomId).emit("receive_video_action", data);
+    });
+
+    // 3. Chat trong phòng
+    socket.on("send_message", (data) => {
+        // data: { roomId, user: 'Huy', text: 'Phim hay quá' }
+        socket.to(data.roomId).emit("receive_message", data);
+    });
+
+    // 4. Ngắt kết nối
+    socket.on("disconnect", () => {
+        // console.log("Client disconnected", socket.id);
+    });
+});
+
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
 app.use(hpp()); 
 
-// --- Routes ---
+// --- Routes HTTP ---
 app.get('/ping', (req, res) => {
     res.status(200).send('Pong! Server is alive.');
 });
@@ -79,7 +119,6 @@ app.get('/', (req, res) => {
     res.send('Server PhimVietHay đang chạy...');
 });
 
-// Middleware xử lý lỗi tập trung
 app.use((err, req, res, next) => {
     console.error('🔥 Lỗi hệ thống:', err.stack);
     res.status(500).json({ 
@@ -88,6 +127,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server đang chạy tại http://localhost:${PORT}`);
+// [THAY ĐỔI] Dùng server.listen thay vì app.listen
+server.listen(PORT, () => {
+    console.log(`🚀 Server Socket đang chạy tại http://localhost:${PORT}`);
 });
