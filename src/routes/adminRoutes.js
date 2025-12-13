@@ -2,28 +2,25 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 
-// 1. Import verifyToken (Vì authMiddleware xuất trực tiếp 1 hàm -> KHÔNG dùng ngoặc nhọn)
+// Middlewares
 const verifyToken = require('../middlewares/authMiddleware');
-
-// 2. Import verifyAdmin (Vì adminMiddleware xuất Object -> PHẢI dùng ngoặc nhọn)
 const { verifyAdmin, verifySuperAdmin } = require('../middlewares/adminMiddleware');
 
-// --- ÁP DỤNG MIDDLEWARE ---
-// Nếu verifyToken hoặc verifyAdmin bị undefined, dòng này sẽ gây crash server
+// ÁP DỤNG MIDDLEWARE BẢO VỆ TOÀN BỘ ROUTE ADMIN
 router.use(verifyToken, verifyAdmin);
 
-// --- ĐỊNH NGHĨA ROUTES ---
+// --- Stats ---
 router.get('/stats', adminController.getStats);
 
-// Users
+// --- Users ---
 router.get('/users', adminController.getAllUsers);
-router.delete('/users/:id', adminController.deleteUser);
+router.delete('/users/:id', adminController.deleteUser); // Admin thường xóa được User thường
 
-// Nâng quyền (Chỉ Super Admin)
+// [SUPER ADMIN ONLY] Nâng quyền & Cấm User
 router.put('/users/:id/role', verifySuperAdmin, adminController.updateUserRole);
-router.put('/users/:id/ban', adminController.banUser);
+router.put('/users/:id/ban', verifySuperAdmin, adminController.banUser);
 
-// Comments
+// --- Comments ---
 router.get('/comments', adminController.getAllComments);
 router.delete('/comments/:id', adminController.deleteComment);
 

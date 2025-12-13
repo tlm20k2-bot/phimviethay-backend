@@ -1,4 +1,4 @@
-const db = require('../config/database'); // <--- [QUAN TRỌNG] Thêm dòng này để dùng db
+const db = require('../config/database'); 
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -7,6 +7,11 @@ const jwt = require('jsonwebtoken');
 exports.register = async (req, res) => {
     try {
         const { username, email, password, fullname } = req.body;
+
+        // Validate cơ bản
+        if (!username || !email || !password) {
+            return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin!' });
+        }
 
         const existingUser = await User.checkExist(username, email);
         if (existingUser) {
@@ -20,50 +25,43 @@ exports.register = async (req, res) => {
 
         res.status(201).json({ message: 'Đăng ký thành công!' });
     } catch (error) {
-        res.status(500).json({ message: 'Lỗi server' });
+        console.error("Register Error:", error);
+        res.status(500).json({ message: 'Lỗi đăng ký tài khoản.' });
     }
 };
 
 // ĐĂNG NHẬP
 exports.login = async (req, res) => {
     try {
-        // Frontend gửi field tên là 'email', nhưng giá trị có thể là username hoặc email
         const { email, password } = req.body; 
 
-        // 1. Tìm user bằng (Email HOẶC Username) thông qua Model
+        // 1. Tìm user
         const user = await User.findByCredentials(email);
-        
         if (!user) {
             return res.status(400).json({ message: 'Tài khoản không tồn tại!' });
         }
 
-        // --- [MỚI] 2. KIỂM TRA TRẠNG THÁI CẤM (BAN) ---
-        // Query trực tiếp vào DB để lấy banned_until chính xác nhất theo ID
-        const [banCheck] = await db.query('SELECT banned_until FROM users WHERE id = ?', [user.id]);
-        
-        if (banCheck.length > 0) {
-            const bannedUntil = banCheck[0].banned_until;
-            if (bannedUntil && new Date(bannedUntil) > new Date()) {
-                return res.status(403).json({ 
-                    message: `Tài khoản của bạn bị khóa đến: ${new Date(bannedUntil).toLocaleString('vi-VN')}` 
-                });
-            }
+        // 2. CHECK BAN (Logic cũ của bạn rất tốt, giữ nguyên)
+        if (user.banned_until && new Date(user.banned_until) > new Date()) {
+             return res.status(403).json({ 
+                 message: `Tài khoản bị khóa đến: ${new Date(user.banned_until).toLocaleString('vi-VN')}` 
+             });
         }
-        // ------------------------------------------------
 
-        // 3. Kiểm tra mật khẩu
+        // 3. Kiểm tra password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Mật khẩu không đúng!' });
         }
 
-        // 4. Tạo Token
+        // 4. Tạo Token (Bảo mật: Token chỉ chứa ID và Role)
         const token = jwt.sign(
             { id: user.id, role: user.role }, 
             process.env.JWT_SECRET, 
             { expiresIn: '7d' }
         );
 
+        // Trả về info (loại bỏ password)
         res.json({
             token,
             user: {
@@ -76,7 +74,7 @@ exports.login = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi server' });
+        console.error("Login Error:", error);
+        res.status(500).json({ message: 'Lỗi đăng nhập.' });
     }
 };

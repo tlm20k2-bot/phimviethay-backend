@@ -4,64 +4,40 @@ exports.getComments = async (req, res) => {
     try {
         const { slug } = req.params;
         const { episode } = req.query;
-
-        // Xác định userId nếu người dùng đã đăng nhập
-        let userId = 0;
-        if (req.user) {
-            userId = req.user.id;
-        }
+        // Lấy userId từ token (nếu có) để check trạng thái Like
+        const userId = req.user ? req.user.id : 0;
 
         const comments = await Comment.getByContext(slug, episode, userId);
         res.json(comments);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi server' });
-    }
+    } catch (error) { res.status(500).json({ message: 'Server error' }); }
 };
 
 exports.addComment = async (req, res) => {
     try {
         const { movieSlug, episodeSlug, content, parentId } = req.body;
 
-        if (!content || !content.trim()) {
-            return res.status(400).json({ message: 'Nội dung trống' });
-        }
+        if (!content || !content.trim()) return res.status(400).json({ message: 'Content required' });
 
         await Comment.add(req.user.id, movieSlug, episodeSlug, content, parentId);
 
-        // Trả về danh sách comment mới nhất để cập nhật UI
+        // Trả về list mới nhất để update UI ngay lập tức
         const newComments = await Comment.getByContext(movieSlug, episodeSlug, req.user.id);
         res.json(newComments);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi server' });
-    }
+    } catch (error) { res.status(500).json({ message: 'Server error' }); }
 };
 
 exports.toggleLike = async (req, res) => {
     try {
-        const { id } = req.params;
-        await Comment.toggleLike(req.user.id, id);
+        await Comment.toggleLike(req.user.id, req.params.id);
         res.json({ message: 'Success' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi server' });
-    }
+    } catch (error) { res.status(500).json({ message: 'Server error' }); }
 };
 
 exports.deleteComment = async (req, res) => {
     try {
-        const { id } = req.params;
-        
-        const success = await Comment.delete(id, req.user.id, req.user.role);
-        
-        if (!success) {
-            return res.status(403).json({ message: 'Không có quyền xóa' });
-        }
+        const success = await Comment.delete(req.params.id, req.user.id, req.user.role);
+        if (!success) return res.status(403).json({ message: 'Forbidden' });
 
-        res.json({ message: 'Đã xóa bình luận' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi server' });
-    }
+        res.json({ message: 'Deleted' });
+    } catch (error) { res.status(500).json({ message: 'Server error' }); }
 };

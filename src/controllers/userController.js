@@ -1,120 +1,90 @@
-const Favorite = require('../models/Favorite');
 const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const Favorite = require('../models/Favorite');
 const History = require('../models/History'); 
+const bcrypt = require('bcryptjs');
 
-// Lấy danh sách yêu thích
+// --- FAVORITES ---
 exports.getFavorites = async (req, res) => {
     try {
         const list = await Favorite.getList(req.user.id);
         res.json(list);
-    } catch (error) {
-        res.status(500).json({ message: 'Lỗi server' });
-    }
+    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
 };
 
-// Thêm yêu thích
 exports.addFavorite = async (req, res) => {
     try {
         const { slug, name, thumb, quality, year, episode_current, vote_average } = req.body;
-        
         if (!slug || !name) return res.status(400).json({ message: 'Thiếu thông tin phim' });
 
-        await Favorite.add(req.user.id, { 
-            slug, 
-            name, 
-            thumb,
-            quality, 
-            year, 
-            episode_current,
-            vote_average 
-        });
-        
-        res.json({ message: 'Đã thêm vào danh sách yêu thích', added: true });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi server' });
-    }
+        await Favorite.add(req.user.id, { slug, name, thumb, quality, year, episode_current, vote_average });
+        res.json({ message: 'Đã thêm vào danh sách', added: true });
+    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
 };
 
-// Xóa yêu thích
 exports.removeFavorite = async (req, res) => {
     try {
-        const { slug } = req.params;
-        await Favorite.remove(req.user.id, slug);
+        await Favorite.remove(req.user.id, req.params.slug);
         res.json({ message: 'Đã xóa khỏi danh sách', added: false });
     } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
 };
 
-// Kiểm tra trạng thái thích
 exports.checkFavorite = async (req, res) => {
     try {
-        const { slug } = req.params;
-        const isFavorite = await Favorite.check(req.user.id, slug);
+        const isFavorite = await Favorite.check(req.user.id, req.params.slug);
         res.json({ isFavorite });
     } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
 };
 
-// Cập nhật hồ sơ
+// --- PROFILE ---
 exports.updateProfile = async (req, res) => {
     try {
         const { fullname, password, avatar } = req.body;
         const updateData = {};
+        
         if (fullname) updateData.fullname = fullname;
-        if (avatar) updateData.avatar = avatar;
+        if (avatar) updateData.avatar = avatar; // Lưu ý: Render không lưu file upload, avatar này phải là link ảnh (từ Cloud)
+        
         if (password) {
             const salt = await bcrypt.genSalt(10);
             updateData.password = await bcrypt.hash(password, salt);
         }
+        
         await User.update(req.user.id, updateData);
+        
+        // Lấy lại info mới nhất để trả về Client cập nhật state
         const updatedUser = await User.findById(req.user.id);
         res.json({ message: 'Cập nhật thành công!', user: updatedUser });
-    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
+    } catch (error) { res.status(500).json({ message: 'Lỗi cập nhật hồ sơ' }); }
 };
 
-// --- HISTORY SECTION ---
-
-// Ghi lịch sử
+// --- HISTORY ---
 exports.setHistory = async (req, res) => {
     try {
         const { movieSlug, episodeSlug, movieName, movieThumb, episodeName } = req.body;
-        
-        if (!movieSlug || !episodeSlug) {
-            return res.status(400).json({ message: 'Thiếu thông tin' });
-        }
+        if (!movieSlug) return res.status(400).json({ message: 'Thiếu slug' });
 
-        // Gọi Model History (Giờ đã được import nên sẽ không lỗi nữa)
         await History.set(req.user.id, { movieSlug, episodeSlug, movieName, movieThumb, episodeName });
-        
-        res.json({ message: 'Đã lưu lịch sử' });
-    } catch (error) {
-        console.error('Lỗi set history:', error);
-        res.status(500).json({ message: 'Lỗi server' });
-    }
+        res.json({ message: 'Saved' });
+    } catch (error) { res.status(500).json({ message: 'Error saving history' }); }
 };
 
-// Lấy lịch sử
 exports.getHistory = async (req, res) => {
     try {
         const list = await History.getList(req.user.id);
         res.json(list);
-    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
+    } catch (error) { res.status(500).json({ message: 'Error fetching history' }); }
 };
 
-// Xóa lịch sử
 exports.clearHistory = async (req, res) => {
     try {
         await History.clear(req.user.id);
-        res.json({ message: 'Đã xóa toàn bộ lịch sử' });
-    } catch (error) { res.status(500).json({ message: 'Lỗi server' }); }
+        res.json({ message: 'Cleared' });
+    } catch (error) { res.status(500).json({ message: 'Error clearing history' }); }
 };
+
 exports.removeHistoryItem = async (req, res) => {
     try {
-        const { slug } = req.params;
-        await History.remove(req.user.id, slug);
-        res.json({ message: 'Đã xóa phim khỏi lịch sử' });
-    } catch (error) {
-        res.status(500).json({ message: 'Lỗi server' });
-    }
+        await History.remove(req.user.id, req.params.slug);
+        res.json({ message: 'Removed' });
+    } catch (error) { res.status(500).json({ message: 'Error removing item' }); }
 };

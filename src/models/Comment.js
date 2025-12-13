@@ -1,24 +1,14 @@
 const db = require('../config/database');
 
 class Comment {
-    // Thêm bình luận
     static async add(userId, movieSlug, episodeSlug, content, parentId = null) {
-        // Xử lý episodeSlug: Nếu là undefined hoặc rỗng -> chuyển thành null
         const epSlugValue = (episodeSlug && episodeSlug !== 'undefined') ? episodeSlug : null;
         
         const sql = 'INSERT INTO comments (user_id, movie_slug, episode_slug, content, parent_id) VALUES (?, ?, ?, ?, ?)';
-        
-        const [result] = await db.execute(sql, [
-            userId, 
-            movieSlug, 
-            epSlugValue, 
-            content,
-            parentId
-        ]);
+        const [result] = await db.execute(sql, [userId, movieSlug, epSlugValue, content, parentId]);
         return result.insertId;
     }
 
-    // Lấy bình luận
     static async getByContext(movieSlug, episodeSlug, currentUserId = 0) {
         let sql = `
             SELECT 
@@ -41,13 +31,12 @@ class Comment {
         }
 
         sql += ` ORDER BY c.created_at DESC`;
-
         const [rows] = await db.execute(sql, params);
         return rows;
     }
 
-    // Toggle Like
     static async toggleLike(userId, commentId) {
+        // Check exist -> Delete else Insert
         const [check] = await db.execute('SELECT id FROM comment_likes WHERE user_id = ? AND comment_id = ?', [userId, commentId]);
         if (check.length > 0) {
             await db.execute('DELETE FROM comment_likes WHERE user_id = ? AND comment_id = ?', [userId, commentId]);
@@ -58,33 +47,24 @@ class Comment {
         }
     }
 
-    // --- SỬA HÀM XÓA (DELETE CASCADE) ---
     static async delete(commentId, userId, userRole) {
-        // 1. Kiểm tra xem comment có tồn tại và có phải của user này không
         const [rows] = await db.execute('SELECT id, user_id FROM comments WHERE id = ?', [commentId]);
-        
-        if (rows.length === 0) return false; // Không tìm thấy
+        if (rows.length === 0) return false;
         
         const comment = rows[0];
-
-        // Nếu không phải Admin VÀ không phải chính chủ -> Chặn
-        if (userRole !== 'admin' && comment.user_id !== userId) {
+        // Check quyền: Admin hoặc Chính chủ
+        if (userRole !== 'super_admin' && userRole !== 'admin' && comment.user_id !== userId) {
             return false;
         }
 
-        // 2. Xóa comment đó VÀ tất cả các reply của nó (những dòng có parent_id = commentId)
+        // Xóa cha và con
         const sql = 'DELETE FROM comments WHERE id = ? OR parent_id = ?';
         const [result] = await db.execute(sql, [commentId, commentId]);
-
         return result.affectedRows > 0;
     }
+
     static async getAll() {
-        const sql = `
-            SELECT c.*, u.username, u.avatar 
-            FROM comments c 
-            JOIN users u ON c.user_id = u.id 
-            ORDER BY c.created_at DESC
-        `;
+        const sql = `SELECT c.*, u.username, u.avatar FROM comments c JOIN users u ON c.user_id = u.id ORDER BY c.created_at DESC`;
         const [rows] = await db.execute(sql);
         return rows;
     }

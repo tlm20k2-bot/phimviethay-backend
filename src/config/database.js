@@ -1,39 +1,38 @@
 const mysql = require('mysql2');
 require('dotenv').config();
 
+// Cấu hình Connection Pool tối ưu cho TiDB Serverless (Free Tier)
 const pool = mysql.createPool({
-    // Thông tin kết nối cơ bản
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
     database: process.env.DB_NAME,
     port: process.env.DB_PORT || 4000,
 
-    // Cấu hình Pool để tối ưu hiệu năng
+    // Tinh chỉnh tài nguyên: Giảm limit để phù hợp với gói Free
     waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
+    connectionLimit: 5,  // Giảm từ 10 -> 5 (TiDB Free chịu tải tốt hơn ở mức này)
+    queueLimit: 50,      // Giới hạn hàng đợi request DB để server Fail-fast thay vì treo
 
-    // Cấu hình Keep-Alive để tránh lỗi ECONNRESET
+    // Giữ kết nối ổn định trên môi trường Cloud
     enableKeepAlive: true,
-    keepAliveInitialDelay: 0,
+    keepAliveInitialDelay: 10000,
 
-    // Cấu hình SSL (Bắt buộc đối với TiDB/Cloud DB)
+    // SSL bắt buộc cho TiDB
     ssl: {
         minVersion: 'TLSv1.2',
-        rejectUnauthorized: false 
+        rejectUnauthorized: false
     }
 });
 
-// Chuyển đổi sang Promise để sử dụng async/await
 const db = pool.promise();
 
-// Kiểm tra kết nối khi khởi động server
+// Kiểm tra kết nối 1 lần khi khởi động
 pool.getConnection((err, connection) => {
     if (err) {
-        console.error('❌ Lỗi kết nối MySQL:', err.message);
+        console.error('❌ [Database] Kết nối thất bại:', err.message);
     } else {
-        console.log('✅ Đã kết nối thành công tới MySQL Database!');
+        console.log('✅ [Database] Kết nối TiDB thành công!');
         connection.release();
     }
 });

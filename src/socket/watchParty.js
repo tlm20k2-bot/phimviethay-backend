@@ -17,8 +17,8 @@ const watchPartyHandler = (io, socket) => {
 
     // 2. CREATE ROOM
     socket.on("create_room", ({ roomId, roomName, isPublic, userId }) => {
-        // Nếu phòng đang chờ xóa (do Host F5), hủy xóa ngay để tái sử dụng
-        if (activeRooms[roomId] && activeRooms[roomId].deleteTimer) {
+        // Hủy timer xóa nếu phòng được tạo lại (trường hợp host F5 nhanh)
+        if (activeRooms[roomId]?.deleteTimer) {
             clearTimeout(activeRooms[roomId].deleteTimer);
             activeRooms[roomId].deleteTimer = null;
             return;
@@ -49,12 +49,11 @@ const watchPartyHandler = (io, socket) => {
             return;
         }
 
-        // Logic Reconnect: Nếu Host cũ quay lại -> Hủy lệnh giải tán phòng
+        // Host Reconnect Logic
         let isHost = false;
         if (room.ownerId && String(room.ownerId) === String(userId)) {
             isHost = true;
             room.hostSocketId = socket.id; 
-            
             if (room.deleteTimer) {
                 clearTimeout(room.deleteTimer);
                 room.deleteTimer = null;
@@ -63,7 +62,7 @@ const watchPartyHandler = (io, socket) => {
 
         socket.join(roomId);
 
-        // Cập nhật danh sách người xem
+        // Update Viewers List
         const existingViewerIndex = room.viewers.findIndex(v => v.user.id === userInfo.id || v.socketId === socket.id);
         const viewerData = { socketId: socket.id, user: { ...userInfo, isHost } };
 
@@ -81,14 +80,15 @@ const watchPartyHandler = (io, socket) => {
         });
 
         io.in(roomId).emit("update_viewers", room.viewers.map(v => v.user));
-        
         if (room.isPublic) io.emit("update_room_list");
     });
 
-    // 4. VIDEO ACTION
+    // 4. VIDEO ACTION (SYNC CORE)
     socket.on("video_action", (data) => {
         const room = activeRooms[data.roomId];
         if (!room) return;
+        
+        // Chỉ Host được điều khiển (trừ action request_sync của Guest)
         if (data.action !== 'request_sync' && room.hostSocketId !== socket.id) return; 
 
         if (data.action === 'change_movie') {
@@ -123,18 +123,16 @@ const watchPartyHandler = (io, socket) => {
         }
     });
 
-    // 7. DISCONNECT
+    // 7. DISCONNECT & CLEANUP
     socket.on("disconnect", () => {
         for (const [roomId, room] of Object.entries(activeRooms)) {
-            
             const viewerIndex = room.viewers.findIndex(v => v.socketId === socket.id);
             
             if (viewerIndex !== -1) {
-                // Xóa user khỏi danh sách
                 room.viewers.splice(viewerIndex, 1);
                 io.in(roomId).emit("update_viewers", room.viewers.map(v => v.user));
 
-                // [LOGIC] Nếu Host out -> Chờ 10s để reconnect
+                // Nếu Host out -> Chờ 10s để reconnect
                 if (socket.id === room.hostSocketId) {
                     room.deleteTimer = setTimeout(() => {
                         if (activeRooms[roomId]) {
@@ -146,7 +144,7 @@ const watchPartyHandler = (io, socket) => {
                     }, 10000); 
 
                 } else {
-                    // [LOGIC] Nếu Guest out và phòng trống -> Chờ 60s hủy phòng
+                    // Nếu Guest out và phòng trống -> Chờ 60s hủy phòng
                     if (room.viewers.length === 0 && !room.deleteTimer) {
                         room.deleteTimer = setTimeout(() => {
                             if (activeRooms[roomId] && activeRooms[roomId].viewers.length === 0) {
