@@ -21,6 +21,7 @@ exports.register = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
+        // Mặc định đăng ký thường là auth_type = local
         await User.create(username, email, hashedPassword, fullname);
 
         res.status(201).json({ message: 'Đăng ký thành công!' });
@@ -41,7 +42,15 @@ exports.login = async (req, res) => {
             return res.status(400).json({ message: 'Tài khoản không tồn tại!' });
         }
 
-        // 2. CHECK BAN (Logic cũ của bạn rất tốt, giữ nguyên)
+        // [QUAN TRỌNG] Kiểm tra nếu user đăng ký bằng Google (không có pass)
+        // Đây là nguyên nhân gây lỗi 500 trước đó
+        if (!user.password) {
+            return res.status(400).json({ 
+                message: 'Email này đã đăng ký bằng Google. Vui lòng chọn "Đăng nhập bằng Google".' 
+            });
+        }
+
+        // 2. CHECK BAN
         if (user.banned_until && new Date(user.banned_until) > new Date()) {
              return res.status(403).json({ 
                  message: `Tài khoản bị khóa đến: ${new Date(user.banned_until).toLocaleString('vi-VN')}` 
@@ -54,14 +63,15 @@ exports.login = async (req, res) => {
             return res.status(400).json({ message: 'Mật khẩu không đúng!' });
         }
 
-        // 4. Tạo Token (Bảo mật: Token chỉ chứa ID và Role)
+        // 4. Tạo Token
+        // Sử dụng process.env.JWT_SECRET để đồng bộ với middleware của bạn
         const token = jwt.sign(
             { id: user.id, role: user.role }, 
             process.env.JWT_SECRET, 
             { expiresIn: '7d' }
         );
 
-        // Trả về info (loại bỏ password)
+        // Trả về info
         res.json({
             token,
             user: {
@@ -76,5 +86,29 @@ exports.login = async (req, res) => {
     } catch (error) {
         console.error("Login Error:", error);
         res.status(500).json({ message: 'Lỗi đăng nhập.' });
+    }
+};
+
+// [MỚI] LẤY THÔNG TIN USER (Dùng cho Google Login)
+exports.getMe = async (req, res) => {
+    try {
+        // req.user.id lấy từ middleware verifyToken
+        const user = await User.findById(req.user.id);
+        
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+        }
+
+        res.json({
+            id: user.id,
+            username: user.username,
+            fullname: user.fullname,
+            email: user.email,
+            avatar: user.avatar,
+            role: user.role
+        });
+    } catch (error) {
+        console.error("GetMe Error:", error);
+        res.status(500).json({ message: 'Lỗi lấy thông tin người dùng' });
     }
 };
