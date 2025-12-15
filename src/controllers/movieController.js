@@ -55,7 +55,6 @@ exports.getMovieDetail = async (req, res) => {
         } catch (apiErr) {
             // [OFFLINE MODE] Nếu API OPhim lỗi, fallback về DB local
             if (dbMovie) {
-                console.log(`[Offline Mode] Serving ${slug} from DB.`);
                 // Tăng view
                 Movie.incrementView(slug);
                 return res.json({

@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const commentController = require('../controllers/commentController');
-const verifyToken = require('../middlewares/authMiddleware');
+const verifyToken = require('../middlewares/authMiddleware'); // Middleware import kiểu cũ (rollback)
 const jwt = require('jsonwebtoken');
 
-// Middleware kiểm tra token nhưng không bắt buộc (cho API get comments)
+// Middleware optional
 const verifyTokenOptional = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -21,4 +21,8 @@ router.get('/:slug', verifyTokenOptional, commentController.getComments);
 router.post('/', verifyToken, commentController.addComment);
 router.delete('/:id', verifyToken, commentController.deleteComment);
 router.post('/:id/like', verifyToken, commentController.toggleLike);
+
+// [NEW] Route Ghim
+router.post('/:id/pin', verifyToken, commentController.pinComment);
+
 module.exports = router;
